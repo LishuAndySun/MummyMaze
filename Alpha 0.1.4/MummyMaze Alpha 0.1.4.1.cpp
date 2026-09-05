@@ -1,11 +1,8 @@
 #include <bits/stdc++.h>
 #ifdef _WIN32
 #include <windows.h>
-#include <conio.h>
 #else
 #include <unistd.h>
-#include <termios.h>
-#include <sys/select.h>
 #endif
 using namespace std;
 
@@ -18,7 +15,6 @@ int mrow, mcol;             // Mummy initial position
 int erow, ecol;             // Exit/treasure position
 const int MAZER = 10, MAZEC = 20; // Maze dimensions
 const double WALL_DENSITY = 0.13; // Wall density
-const double TIME_RESTRICT = 3.0; // Time limit per turn in seconds
 //*---------------------CONFIG AREA ENDING-----------------*//
 
 bool gameover();
@@ -27,7 +23,6 @@ void pmove(char direction); // w = up, s = down, a = left, d = right
 void mmove();
 void clearscreen();
 void generate_map();
-bool get_timed_input(char &input, double seconds);
 
 int main()
 {
@@ -42,24 +37,13 @@ int main()
     {
         clearscreen();
         showmap();
-        cout << "Enter [w|a|s|d] to move (Limit: " << TIME_RESTRICT << "s): " << flush;
+        cout << "Enter [w|a|s|d] to move: ";
+        cin >> dire;
         
-        // Wait for user input within TIME_RESTRICT seconds
-        bool input_received = get_timed_input(dire, TIME_RESTRICT);
-
-        if (input_received)
-        {
-            pmove(dire);
-        }
-        else
-        {
-            cout << "\nTime's up! Turn skipped!\n";
-#ifdef _WIN32
-            Sleep(800);
-#else
-            usleep(800000);
-#endif
-        }
+        // fix issue #2
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        
+        pmove(dire);
 
         // The mummy moves twice per turn
         for(int i = 0; i < 2; i++)
@@ -86,60 +70,6 @@ int main()
     sleep(5);
 #endif
     return 0;
-}
-
-// Timed non-blocking character input supporting both Windows and POSIX (Linux/macOS)
-bool get_timed_input(char &input, double seconds)
-{
-#ifdef _WIN32
-    auto start_time = chrono::steady_clock::now();
-    while (true)
-    {
-        if (_kbhit())
-        {
-            input = static_cast<char>(_getch());
-            return true;
-        }
-        auto elapsed = chrono::duration_cast<chrono::duration<double>>(chrono::steady_clock::now() - start_time).count();
-        if (elapsed >= seconds)
-        {
-            return false;
-        }
-        Sleep(10);
-    }
-#else
-    // Set terminal to raw/unbuffered mode
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(STDIN_FILENO, &readfds);
-
-    struct timeval tv;
-    tv.tv_sec = static_cast<time_t>(seconds);
-    tv.tv_usec = static_cast<suseconds_t>((seconds - tv.tv_sec) * 1000000);
-
-    int ret = select(STDIN_FILENO + 1, &readfds, NULL, NULL, &tv);
-    bool received = false;
-
-    if (ret > 0 && FD_ISSET(STDIN_FILENO, &readfds))
-    {
-        char c;
-        if (read(STDIN_FILENO, &c, 1) > 0)
-        {
-            input = c;
-            received = true;
-        }
-    }
-
-    // Restore terminal settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return received;
-#endif
 }
 
 // Generates a solvable and playable map randomly using BFS
@@ -319,10 +249,10 @@ bool gameover()
 void pmove(char direction)
 {
     int nrow = prow, ncol = pcol;
-    if(direction == 'w' || direction == 'W') nrow--;
-    if(direction == 's' || direction == 'S') nrow++;
-    if(direction == 'a' || direction == 'A') ncol--;
-    if(direction == 'd' || direction == 'D') ncol++;
+    if(direction == 'w') nrow--;
+    if(direction == 's') nrow++;
+    if(direction == 'a') ncol--;
+    if(direction == 'd') ncol++;
     
     // Check if the target position is inside and not a wall
     if(nrow >= 0 && nrow < MAZER && ncol >= 0 && ncol < MAZEC && maze[nrow][ncol] != '#')
