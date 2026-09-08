@@ -15,6 +15,7 @@ int mrow, mcol;             // Mummy initial position
 int erow, ecol;             // Exit/treasure position
 const int MAZER = 10, MAZEC = 20; // Maze dimensions
 const double WALL_DENSITY = 0.13; // Wall density
+const int MAX_GEN_ATTEMPTS = 10000; // Maximum number of attempts to prevent infinite loops
 //*---------------------CONFIG AREA ENDING-----------------*//
 
 bool gameover();
@@ -93,8 +94,13 @@ void generate_map()
     const int dr[] = {-1, 1, 0, 0};
     const int dc[] = {0, 0, -1, 1};
 
-    while(true)
+    int attempts = 0;
+    bool success = false;
+
+    while(attempts < MAX_GEN_ATTEMPTS)
     {
+        attempts++;
+
         // 1. Initialize boundary and random interior walls
         for(int i = 0; i < MAZER; i++)
         {
@@ -184,6 +190,8 @@ void generate_map()
             }
         }
 
+        if(exit_candidates.empty()) continue;
+
         int e_idx = rand() % exit_candidates.size();
         erow = exit_candidates[e_idx].first;
         ecol = exit_candidates[e_idx].second;
@@ -208,7 +216,14 @@ void generate_map()
         mrow = mummy_candidates[m_idx].first;
         mcol = mummy_candidates[m_idx].second;
 
+        success = true;
         break; // Successfully generated a valid layout
+    }
+
+    if(!success)
+    {
+        cerr << "Failed to generate map" << endl;
+        exit(1);
     }
 }
 
