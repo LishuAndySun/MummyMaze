@@ -1,9 +1,18 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <utility>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+#include <limits>
+
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <unistd.h>
 #endif
+
 using namespace std;
 
 //*-------------------------------------------------------*//
@@ -15,12 +24,11 @@ int mrow, mcol;             // Mummy initial position
 int erow, ecol;             // Exit/treasure position
 const int MAZER = 10, MAZEC = 20; // Maze dimensions
 const double WALL_DENSITY = 0.13; // Wall density
-const int MAX_GEN_ATTEMPTS = 10000; // Maximum number of attempts to prevent infinite loops
 //*---------------------CONFIG AREA ENDING-----------------*//
 
 bool gameover();
 void showmap();
-void pmove(char direction); // w = up, s = down, a = left, d = right, j = skip/wait
+void pmove(char direction); // w = up, s = down, a = left, d = right
 void pskip();               // Skip player's move for this turn
 void mmove();
 void clearscreen();
@@ -42,7 +50,7 @@ int main()
         cout << "Enter [w|a|s|d] to move or [j] to skip: ";
         cin >> dire;
         
-        // fix issue #2
+        // fix issue #2: flush remaining newline characters in buffer
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         
         if (dire == 'j' || dire == 'J')
@@ -84,8 +92,7 @@ int main()
 // Function to skip/pass the player's movement for this turn
 void pskip()
 {
-    // Player remains at the same position
-    // (Intentional no-op, mummy will still move afterwards)
+    // Player remains at current position; mummy moves after
 }
 
 // Generates a solvable and playable map randomly using BFS
@@ -94,13 +101,8 @@ void generate_map()
     const int dr[] = {-1, 1, 0, 0};
     const int dc[] = {0, 0, -1, 1};
 
-    int attempts = 0;
-    bool success = false;
-
-    while(attempts < MAX_GEN_ATTEMPTS)
+    while(true)
     {
-        attempts++;
-
         // 1. Initialize boundary and random interior walls
         for(int i = 0; i < MAZER; i++)
         {
@@ -190,8 +192,6 @@ void generate_map()
             }
         }
 
-        if(exit_candidates.empty()) continue;
-
         int e_idx = rand() % exit_candidates.size();
         erow = exit_candidates[e_idx].first;
         ecol = exit_candidates[e_idx].second;
@@ -216,14 +216,7 @@ void generate_map()
         mrow = mummy_candidates[m_idx].first;
         mcol = mummy_candidates[m_idx].second;
 
-        success = true;
         break; // Successfully generated a valid layout
-    }
-
-    if(!success)
-    {
-        cerr << "Failed to generate map" << endl;
-        exit(1);
     }
 }
 
