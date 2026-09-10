@@ -8,6 +8,7 @@
 #include <limits>
 
 #ifdef _WIN32
+#define NOMINMAX // Prevent windows.h from defining min/max macros
 #include <windows.h>
 #else
 #include <unistd.h>
@@ -16,73 +17,75 @@
 using namespace std;
 
 //*-------------------------------------------------------*//
-// The maze map buffer
-char maze[30][50];
+// Maze map buffer
+char Maze[30][50];
 
-int prow, pcol;             // Player initial position
-int mrow, mcol;             // Mummy initial position
-int erow, ecol;             // Exit/treasure position
-const int MAZER = 10, MAZEC = 20; // Maze dimensions
-const double WALL_DENSITY = 0.13; // Wall density
+int PlayerRow, PlayerCol;       // Player current position
+int MummyRow, MummyCol;         // Mummy current position
+int ExitRow, ExitCol;           // Exit/treasure position
+const int MazeRows = 10;        // Maze row count
+const int MazeCols = 20;        // Maze column count
+const double WallDensity = 0.13; // Density of internal walls
 //*---------------------CONFIG AREA ENDING-----------------*//
 
-bool gameover();
-void showmap();
-void pmove(char direction); // w = up, s = down, a = left, d = right
-void pskip();               // Skip player's move for this turn
-void mmove();
-void clearscreen();
-void generate_map();
+bool GameOver();
+void ShowMap();
+void MovePlayer(char Direction); // W = Up, S = Down, A = Left, D = Right
+void SkipPlayer();               // Skip player's move for this turn
+void MoveMummy();
+void ClearScreen();
+void GenerateMap();
 
 int main()
 {
-    srand(static_cast<unsigned int>(time(NULL)));
+    srand(static_cast<unsigned int>(time(nullptr)));
     
     // Generate random valid maze using BFS
-    generate_map();
+    GenerateMap();
 
-    char dire;
+    char InputDirection;
 
-    while(!gameover())
+    while (!GameOver())
     {
-        clearscreen();
-        showmap();
+        ClearScreen();
+        ShowMap();
         cout << "Enter [w|a|s|d] to move or [j] to skip: ";
-        cin >> dire;
+        cin >> InputDirection;
         
-        // flush remaining newline characters in buffer
+        // Flush remaining newline characters in buffer
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         
-        if (dire == 'j' || dire == 'J')
+        if (InputDirection == 'j' || InputDirection == 'J')
         {
-            pskip();
+            SkipPlayer();
         }
         else
         {
-            pmove(dire);
+            MovePlayer(InputDirection);
         }
 
         // The mummy moves twice per turn
-        for(int i = 0; i < 2; i++)
+        for (int StepIndex = 0; StepIndex < 2; ++StepIndex)
         {
-            if(gameover()) break; // Stop moving if game has already ended
-            mmove();
-            if(gameover()) break; // Immediate check after moving
+            if (GameOver()) break; // Stop moving if game has already ended
+            MoveMummy();
+            if (GameOver()) break; // Immediate check after moving
         }
     }
-    clearscreen();
-    showmap();
+    
+    ClearScreen();
+    ShowMap();
 
-    // Determine win or lose (Fixed Issue 2: Mummy reaching exit results in mummy loss)
-    if(mrow == erow && mcol == ecol)
+    // Determine win or lose condition
+    if (MummyRow == ExitRow && MummyCol == ExitCol)
     {
         cout << "The mummy stepped on the exit and was trapped! You win!" << endl;
     }
-    else if(prow == erow && pcol == ecol)
+    else if (PlayerRow == ExitRow && PlayerCol == ExitCol)
     {
         cout << "Congratulations! You escaped!" << endl;
     } 
-    else if(prow == mrow && pcol == mcol)
+    else if (PlayerRow == MummyRow && PlayerCol == MummyCol)
     {
         cout << "You were caught by the mummy! Game Over!" << endl;
     }
@@ -95,139 +98,142 @@ int main()
     return 0;
 }
 
-// Function to skip/pass the player's movement for this turn
-void pskip()
+// Function to skip the player's movement for this turn
+void SkipPlayer()
 {
     // Player remains at current position; mummy moves after
 }
 
 // Generates a solvable and playable map randomly using BFS
-void generate_map()
+void GenerateMap()
 {
-    const int dr[] = {-1, 1, 0, 0};
-    const int dc[] = {0, 0, -1, 1};
+    const int DeltaRow[] = {-1, 1, 0, 0};
+    const int DeltaCol[] = {0, 0, -1, 1};
 
-    while(true)
+    while (true)
     {
         // 1. Initialize boundary and random interior walls
-        for(int i = 0; i < MAZER; i++)
+        for (int Row = 0; Row < MazeRows; ++Row)
         {
-            for(int j = 0; j < MAZEC; j++)
+            for (int Col = 0; Col < MazeCols; ++Col)
             {
-                if(i == 0 || i == MAZER - 1 || j == 0 || j == MAZEC - 1)
+                if (Row == 0 || Row == MazeRows - 1 || Col == 0 || Col == MazeCols - 1)
                 {
-                    maze[i][j] = '#';
+                    Maze[Row][Col] = '#';
                 }
                 else
                 {
-                    double r = (double)rand() / RAND_MAX;
-                    maze[i][j] = (r < WALL_DENSITY) ? '#' : '.';
+                    double RandomRatio = static_cast<double>(rand()) / RAND_MAX;
+                    Maze[Row][Col] = (RandomRatio < WallDensity) ? '#' : '.';
                 }
             }
         }
 
-        // 2. Randomly pick a free space for Player (P)
-        vector<pair<int, int>> free_cells;
-        for(int i = 1; i < MAZER - 1; i++)
+        // 2. Randomly pick a free space for Player
+        vector<pair<int, int>> FreeCells;
+        for (int Row = 1; Row < MazeRows - 1; ++Row)
         {
-            for(int j = 1; j < MAZEC - 1; j++)
+            for (int Col = 1; Col < MazeCols - 1; ++Col)
             {
-                if(maze[i][j] == '.')
+                if (Maze[Row][Col] == '.')
                 {
-                    free_cells.push_back({i, j});
+                    FreeCells.push_back({Row, Col});
                 }
             }
         }
 
-        if(free_cells.empty()) continue;
+        if (FreeCells.empty()) continue;
 
-        int p_idx = rand() % free_cells.size();
-        prow = free_cells[p_idx].first;
-        pcol = free_cells[p_idx].second;
+        int PlayerIndex = rand() % FreeCells.size();
+        PlayerRow = FreeCells[PlayerIndex].first;
+        PlayerCol = FreeCells[PlayerIndex].second;
 
         // 3. BFS from player position to find reachable cells and shortest distances
-        vector<vector<int>> dist(MAZER, vector<int>(MAZEC, -1));
-        queue<pair<int, int>> q;
+        vector<vector<int>> DistanceMap(MazeRows, vector<int>(MazeCols, -1));
+        queue<pair<int, int>> SearchQueue;
 
-        dist[prow][pcol] = 0;
-        q.push({prow, pcol});
+        DistanceMap[PlayerRow][PlayerCol] = 0;
+        SearchQueue.push({PlayerRow, PlayerCol});
 
-        vector<pair<int, pair<int, int>>> reachable; // Stores {distance, {r, c}}
+        vector<pair<int, pair<int, int>>> ReachableCells; // Stores {Distance, {Row, Col}}
 
-        while(!q.empty())
+        while (!SearchQueue.empty())
         {
-            auto [cr, cc] = q.front();
-            q.pop();
+            // C++14 standard: access pair members directly
+            pair<int, int> CurrentCell = SearchQueue.front();
+            SearchQueue.pop();
+            int CurrentRow = CurrentCell.first;
+            int CurrentCol = CurrentCell.second;
 
-            reachable.push_back({dist[cr][cc], {cr, cc}});
+            ReachableCells.push_back({DistanceMap[CurrentRow][CurrentCol], {CurrentRow, CurrentCol}});
 
-            for(int d = 0; d < 4; d++)
+            for (int DirectionIndex = 0; DirectionIndex < 4; ++DirectionIndex)
             {
-                int nr = cr + dr[d];
-                int nc = cc + dc[d];
+                int NextRow = CurrentRow + DeltaRow[DirectionIndex];
+                int NextCol = CurrentCol + DeltaCol[DirectionIndex];
 
-                if(nr >= 0 && nr < MAZER && nc >= 0 && nc < MAZEC)
+                if (NextRow >= 0 && NextRow < MazeRows && NextCol >= 0 && NextCol < MazeCols)
                 {
-                    if(maze[nr][nc] == '.' && dist[nr][nc] == -1)
+                    if (Maze[NextRow][NextCol] == '.' && DistanceMap[NextRow][NextCol] == -1)
                     {
-                        dist[nr][nc] = dist[cr][cc] + 1;
-                        q.push({nr, nc});
+                        DistanceMap[NextRow][NextCol] = DistanceMap[CurrentRow][CurrentCol] + 1;
+                        SearchQueue.push({NextRow, NextCol});
                     }
                 }
             }
         }
 
         // 4. Validate connectivity (ensure map is not too narrow or blocked)
-        int total_inner_cells = (MAZER - 2) * (MAZEC - 2);
-        if((int)reachable.size() < total_inner_cells * 0.45)
+        int TotalInnerCells = (MazeRows - 2) * (MazeCols - 2);
+        if (static_cast<int>(ReachableCells.size()) < TotalInnerCells * 0.45)
         {
             continue; // Not enough connected space, regenerate
         }
 
-        // 5. Select Exit (E): Pick among the farthest reachable cells
-        sort(reachable.begin(), reachable.end());
-        int max_dist = reachable.back().first;
-        if(max_dist < 6) continue; // Player and exit should not be too close
+        // 5. Select Exit: Pick among the farthest reachable cells
+        sort(ReachableCells.begin(), ReachableCells.end());
+        int MaxDistance = ReachableCells.back().first;
+        if (MaxDistance < 6) continue; // Ensure player and exit are not too close
 
-        vector<pair<int, int>> exit_candidates;
-        for(const auto& item : reachable)
+        vector<pair<int, int>> ExitCandidates;
+        for (const auto& ReachableItem : ReachableCells)
         {
-            if(item.first >= max_dist - 2) // Within top distance bracket
+            if (ReachableItem.first >= MaxDistance - 2) // Within top distance bracket
             {
-                exit_candidates.push_back(item.second);
+                ExitCandidates.push_back(ReachableItem.second);
             }
         }
 
-        int e_idx = rand() % exit_candidates.size();
-        erow = exit_candidates[e_idx].first;
-        ecol = exit_candidates[e_idx].second;
+        int ExitIndex = rand() % ExitCandidates.size();
+        ExitRow = ExitCandidates[ExitIndex].first;
+        ExitCol = ExitCandidates[ExitIndex].second;
 
-        // 6. Select Mummy (M): Must be reachable, dist >= 5 to prevent instant kill, and != Exit
-        vector<pair<int, int>> mummy_candidates;
-        for(const auto& item : reachable)
+        // 6. Select Mummy: Must be reachable, Distance >= 5, and != Exit
+        vector<pair<int, int>> MummyCandidates;
+        for (const auto& ReachableItem : ReachableCells)
         {
-            int d = item.first;
-            int r = item.second.first;
-            int c = item.second.second;
+            int CellDistance = ReachableItem.first;
+            int CellRow = ReachableItem.second.first;
+            int CellCol = ReachableItem.second.second;
 
-            if(d >= 5 && !(r == erow && c == ecol))
+            if (CellDistance >= 5 && !(CellRow == ExitRow && CellCol == ExitCol))
             {
-                mummy_candidates.push_back({r, c});
+                MummyCandidates.push_back({CellRow, CellCol});
             }
         }
 
-        if(mummy_candidates.empty()) continue;
+        if (MummyCandidates.empty()) continue;
 
-        int m_idx = rand() % mummy_candidates.size();
-        mrow = mummy_candidates[m_idx].first;
-        mcol = mummy_candidates[m_idx].second;
+        int MummyIndex = rand() % MummyCandidates.size();
+        MummyRow = MummyCandidates[MummyIndex].first;
+        MummyCol = MummyCandidates[MummyIndex].second;
 
         break; // Successfully generated a valid layout
     }
 }
 
-// multi-platform support for Windows, Mac and Linux.
-void clearscreen()
+// Clear console screen across different platforms
+void ClearScreen()
 {
 #ifdef _WIN32
     system("cls");
@@ -237,28 +243,36 @@ void clearscreen()
 }
 
 // Dynamically render the map based on current coordinates
-void showmap()
+void ShowMap()
 {
-    for(int i = 0; i < MAZER; i++)
+    for (int Row = 0; Row < MazeRows; ++Row)
     {
-        for(int j = 0; j < MAZEC; j++)
+        for (int Col = 0; Col < MazeCols; ++Col)
         {
-            // Priority: Draw player, then mummy, then exit, finally the map structure
-            if (i == prow && j == pcol)
+            // 1. Player overlaps with Exit or is at regular position -> 'P'
+            if (Row == PlayerRow && Col == PlayerCol)
             {
-                cout << 'p';
+                cout << 'P';
             }
-            else if (i == mrow && j == mcol)
+            // 2. Mummy overlaps with Exit -> 'X'
+            else if (Row == MummyRow && Col == MummyCol && Row == ExitRow && Col == ExitCol)
             {
-                cout << 'm';
+                cout << 'X';
             }
-            else if (i == erow && j == ecol)
+            // 3. Exit position -> 'E'
+            else if (Row == ExitRow && Col == ExitCol)
             {
-                cout << 'e';
+                cout << 'E';
             }
+            // 4. Mummy position -> 'M'
+            else if (Row == MummyRow && Col == MummyCol)
+            {
+                cout << 'M';
+            }
+            // 5. Default map tile
             else
             {
-                cout << maze[i][j];
+                cout << Maze[Row][Col];
             }
         }
         cout << endl;
@@ -266,87 +280,95 @@ void showmap()
     cout << endl;
 }
 
-// Fixed Issue 2: Added mummy hitting exit as game-over condition
-bool gameover()
+// Check game termination conditions
+bool GameOver()
 {
-    if((prow == mrow && pcol == mcol) || 
-       (prow == erow && pcol == ecol) || 
-       (mrow == erow && mcol == ecol))
+    if ((PlayerRow == MummyRow && PlayerCol == MummyCol) || 
+        (PlayerRow == ExitRow && PlayerCol == ExitCol) || 
+        (MummyRow == ExitRow && MummyCol == ExitCol))
     {
         return true;
     }
     return false;
 }
 
-void pmove(char direction)
+void MovePlayer(char Direction)
 {
-    int nrow = prow, ncol = pcol;
-    if(direction == 'w' || direction == 'W') nrow--;
-    if(direction == 's' || direction == 'S') nrow++;
-    if(direction == 'a' || direction == 'A') ncol--;
-    if(direction == 'd' || direction == 'D') ncol++;
+    int TargetRow = PlayerRow;
+    int TargetCol = PlayerCol;
+
+    if (Direction == 'w' || Direction == 'W') TargetRow--;
+    if (Direction == 's' || Direction == 'S') TargetRow++;
+    if (Direction == 'a' || Direction == 'A') TargetCol--;
+    if (Direction == 'd' || Direction == 'D') TargetCol++;
     
-    // Check if the target position is inside and not a wall
-    if(nrow >= 0 && nrow < MAZER && ncol >= 0 && ncol < MAZEC && maze[nrow][ncol] != '#')
+    // Check if the target position is within bounds and not a wall
+    if (TargetRow >= 0 && TargetRow < MazeRows && 
+        TargetCol >= 0 && TargetCol < MazeCols && 
+        Maze[TargetRow][TargetCol] != '#')
     {
-        prow = nrow;
-        pcol = ncol;
+        PlayerRow = TargetRow;
+        PlayerCol = TargetCol;
     }
 }
 
-// Fixed Issue 1: BFS Pathfinding for Mummy AI
-void mmove()
+// BFS Pathfinding for Mummy AI
+void MoveMummy()
 {
     // Already at player position
-    if (mrow == prow && mcol == pcol) return;
+    if (MummyRow == PlayerRow && MummyCol == PlayerCol) return;
 
-    const int dr[] = {-1, 1, 0, 0};
-    const int dc[] = {0, 0, -1, 1};
+    const int DeltaRow[] = {-1, 1, 0, 0};
+    const int DeltaCol[] = {0, 0, -1, 1};
 
     // BFS from current mummy position to find shortest path to player
-    queue<pair<int, int>> q;
-    vector<vector<int>> dist(MAZER, vector<int>(MAZEC, -1));
-    vector<vector<pair<int, int>>> parent(MAZER, vector<pair<int, int>>(MAZEC, {-1, -1}));
+    queue<pair<int, int>> PathQueue;
+    vector<vector<int>> DistanceMap(MazeRows, vector<int>(MazeCols, -1));
+    vector<vector<pair<int, int>>> ParentMap(MazeRows, vector<pair<int, int>>(MazeCols, {-1, -1}));
 
-    q.push({mrow, mcol});
-    dist[mrow][mcol] = 0;
+    PathQueue.push({MummyRow, MummyCol});
+    DistanceMap[MummyRow][MummyCol] = 0;
 
-    bool reached = false;
-    while (!q.empty())
+    bool PathFound = false;
+    while (!PathQueue.empty())
     {
-        auto [cr, cc] = q.front();
-        q.pop();
+        // C++14 standard: access pair members directly
+        pair<int, int> CurrentCell = PathQueue.front();
+        PathQueue.pop();
+        int CurrentRow = CurrentCell.first;
+        int CurrentCol = CurrentCell.second;
 
-        if (cr == prow && cc == pcol)
+        if (CurrentRow == PlayerRow && CurrentCol == PlayerCol)
         {
-            reached = true;
+            PathFound = true;
             break;
         }
 
-        for (int d = 0; d < 4; d++)
+        for (int DirectionIndex = 0; DirectionIndex < 4; ++DirectionIndex)
         {
-            int nr = cr + dr[d];
-            int nc = cc + dc[d];
+            int NextRow = CurrentRow + DeltaRow[DirectionIndex];
+            int NextCol = CurrentCol + DeltaCol[DirectionIndex];
 
-            if (nr >= 0 && nr < MAZER && nc >= 0 && nc < MAZEC && maze[nr][nc] != '#' && dist[nr][nc] == -1)
+            if (NextRow >= 0 && NextRow < MazeRows && NextCol >= 0 && NextCol < MazeCols &&
+                Maze[NextRow][NextCol] != '#' && DistanceMap[NextRow][NextCol] == -1)
             {
-                dist[nr][nc] = dist[cr][cc] + 1;
-                parent[nr][nc] = {cr, cc};
-                q.push({nr, nc});
+                DistanceMap[NextRow][NextCol] = DistanceMap[CurrentRow][CurrentCol] + 1;
+                ParentMap[NextRow][NextCol] = {CurrentRow, CurrentCol};
+                PathQueue.push({NextRow, NextCol});
             }
         }
     }
 
-    if (!reached) return; // No accessible path to player
+    if (!PathFound) return; // No accessible path to player
 
-    // Trace back from Player to Mummy to find the exact first step
-    pair<int, int> curr = {prow, pcol};
-    while (parent[curr.first][curr.second] != make_pair(mrow, mcol))
+    // Trace back from Player to Mummy to determine the immediate next step
+    pair<int, int> PathCursor = {PlayerRow, PlayerCol};
+    while (ParentMap[PathCursor.first][PathCursor.second] != make_pair(MummyRow, MummyCol))
     {
-        curr = parent[curr.first][curr.second];
+        PathCursor = ParentMap[PathCursor.first][PathCursor.second];
     }
 
     // Move to the next step along the shortest path
-    mrow = curr.first;
-    mcol = curr.second;
+    MummyRow = PathCursor.first;
+    MummyCol = PathCursor.second;
 }
