@@ -1,108 +1,127 @@
-# Mummy Maze Game - Beta 1.0-A
+# Mummy Maze Escape
 
-## Overview
-Mummy Maze is a classic maze escape game where you (the player) must navigate through a randomly generated maze to reach the exit while avoiding a mummy that hunts you down. Each turn, you can move up, down, left, or right, while the mummy moves twice per turn, making it a fast-paced chase.
+**Version: Beta 1.0-C**
 
-## Features
-- **Procedurally Generated Mazes**: Each game starts with a unique, guaranteed-solvable maze created using BFS-based connectivity validation.
-- **Dynamic Difficulty**: The mummy's movement AI is simple but aggressive, moving toward the player's position when possible.
-- **Player Freedom**: Choose to move or skip your turn (`j` key) to strategize.
-- **Cross-Platform Support**: Works on Windows, macOS, and Linux.
-- **Stable Map Generation**: Includes a safety mechanism to prevent infinite loops during map generation.
-
-## How to Play
-1. Run the compiled executable.
-2. A maze will appear with the following symbols:
-   - `p`: Player (you)
-   - `m`: Mummy (enemy)
-   - `e`: Exit (your goal)
-   - `#`: Wall (impassable)
-   - `.`: Empty space (walkable)
-3. Enter a movement command each turn:
-   - `w` / `W`: Move Up
-   - `s` / `S`: Move Down
-   - `a` / `A`: Move Left
-   - `d` / `D`: Move Right
-   - `j` / `J`: Skip (stay in place)
-4. Reach the exit (`e`) to win, but avoid the mummy (`m`) or it's game over!
-
-## Game Rules
-- The mummy moves twice for every one player move.
-- If the mummy catches you, you lose.
-- If you reach the exit, you win.
-- Walls block both the player and the mummy.
-
-## Controls
-| Key | Action |
-|-----|--------|
-| `W` / `w` | Move Up |
-| `S` / `s` | Move Down |
-| `A` / `a` | Move Left |
-| `D` / `d` | Move Right |
-| `J` / `j` | Skip Turn |
-
-## Installation & Compilation
-
-### Requirements
-- C++17 or later
-- A C++ compiler (GCC, Clang, or MSVC)
-
-### Compile
-```bash
-# On Linux/macOS
-g++ -std=c++17 -o mummy_maze mummy_maze.cpp
-
-# On Windows (using MinGW or MSVC)
-g++ -std=c++17 -o mummy_maze.exe mummy_maze.cpp
-```
-
-### Run
-```bash
-# On Linux/macOS
-./mummy_maze
-
-# On Windows
-mummy_maze.exe
-```
-
-## Version History
-
-### Beta 1.0-A (Current)
-- Fixed potential infinite loop in map generation by adding a maximum attempt counter.
-- On generation failure, the program now exits gracefully with an error message.
-- Maintained all existing gameplay mechanics.
-
-### Previous (Beta 0.x)
-- Initial maze generation with BFS connectivity.
-- Basic mummy chase AI.
-- Cross-platform screen clearing.
-
-## Known Issues
-- The mummy's AI is simplistic and may not always find the shortest path around walls.
-- Input handling is not fully robust; invalid commands still consume a player turn.
-- Random number generation uses `rand()` and may produce similar patterns within the same second.
-
-## Future Improvements
-- Implement BFS-based pathfinding for the mummy to make it more challenging.
-- Add input validation to prevent accidental turn loss.
-- Introduce difficulty levels (adjust wall density, mummy speed, etc.).
-- Add a scoring system based on time taken or turns used.
-- Implement save/load functionality for in-progress games.
-
-## Troubleshooting
-
-### "Failed to generate map" Error
-This occurs if the random maze generator cannot create a valid layout within 10,000 attempts. This is extremely rare under normal conditions. Simply run the program again to generate a new maze.
-
-### Game Does Not Display Correctly
-Ensure your terminal window is at least 20 columns wide and 10 rows tall. The maze is displayed using simple text characters.
-
-### Compilation Errors
-Make sure you are using C++17 or later. If your compiler is older, update it or use `-std=c++17` flag.
-
-## Contact
-For bugs, feature requests, or contributions, please create an issue on the project repository or contact the development team.
+A classic console-based maze escape game written in C++. You play as a
+player (`p`) trapped in a randomly generated maze, trying to reach the
+exit (`e`) while being hunted by a relentless mummy (`m`) that moves
+twice for every move you make.
 
 ---
 
-**Enjoy the chase! 🏃‍♂️🧟**
+## 🎮 Gameplay
+
+- A **random maze** is generated every run (validated with BFS to
+  guarantee it is playable and connected enough).
+- You start at a random position; the **exit** is always placed far away
+  (minimum distance of 6 steps) and the **mummy** spawns at least 5 steps
+  from you — no instant-kill starts.
+- The mummy **moves twice per turn** after every player move.
+- Reach the exit before the mummy catches you!
+
+### Special Rule (new in Beta 1.0-C)
+
+> **If the mummy ever steps onto the exit cell, the mummy is instantly
+> defeated and YOU win.**
+> Use this to your advantage: bait the mummy into chasing you along a
+> path that crosses the exit!
+
+### Win / Lose Conditions
+
+| Condition | Result |
+|---|---|
+| You reach the exit (`e`) | 🏆 You escaped — you win |
+| The mummy steps on the exit (`e`) | 🏆 Mummy trapped — you win |
+| The mummy reaches you (`p`) | 💀 Caught — game over |
+
+---
+
+## ⌨️ Controls
+
+| Key | Action |
+|---|---|
+| `w` | Move up |
+| `s` | Move down |
+| `a` | Move left |
+| `d` | Move right |
+| `j` | Skip this turn (mummy still moves!) |
+
+Input is case-insensitive (`W/A/S/D/J` also work).
+
+---
+
+## 🧟 The Mummy AI
+
+Since **Beta 1.0-C**, the mummy uses **BFS (Breadth-First Search)
+pathfinding**. Each move, it computes the true shortest path to the
+player and takes the first step along that path. It can now route around
+walls instead of getting stuck — no wall will save you.
+
+---
+
+## 🔨 Building
+
+**Requirements:** A C++17 compatible compiler (structured bindings are
+used internally).
+
+### Linux / macOS
+
+```bash
+g++ -std=c++17 -O2 -o mummy_maze main.cpp
+./mummy_maze
+```
+
+### Windows (MinGW)
+
+```bash
+g++ -std=c++17 -O2 -o mummy_maze.exe main.cpp
+mummy_maze.exe
+```
+
+### Visual Studio
+
+Create a console project, add `main.cpp`, and set
+**C++ Language Standard → ISO C++17 (/std:c++17)** in project properties.
+
+No external dependencies are required — only the C++ standard library.
+
+---
+
+## 🗺️ Map Legend
+
+| Symbol | Meaning |
+|---|---|
+| `p` | Player (you) |
+| `m` | Mummy (hunter) |
+| `e` | Exit / treasure |
+| `#` | Wall (impassable) |
+| `.` | Open floor |
+
+---
+
+## ⚙️ Configuration
+
+Tweak these constants at the top of `main.cpp`:
+
+```cpp
+const int MAZER = 10, MAZEC = 20;      // Maze dimensions (rows x columns)
+const double WALL_DENSITY = 0.13;      // Probability of a wall per interior cell
+```
+
+- Increase `WALL_DENSITY` for a harder maze (more walls, tighter corridors).
+- Enlarge `MAZER` / `MAZEC` for a bigger arena (update the `maze`
+  buffer size accordingly).
+
+---
+
+## 📋 Changelog
+
+### Beta 1.0-C
+
+- **Fixed (Issue [#13](https://github.com/LishuAndySun/MummyMaze/issues/13)):** Mummy AI rewritten with BFS shortest-path
+  pathfinding. The mummy no longer gets permanently stuck behind walls
+  and can pursue the player around obstacles.
+- **Fixed (Issue [#12](https://github.com/LishuAndySun/MummyMaze/issues/12)):** New game rule — if the mummy steps onto the exit
+  cell, the game ends immediately with a **player victory**. This removes
+  the ambiguity where the mummy could occupy the exit and the win/lose
+  conditions could conflict.

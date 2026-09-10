@@ -50,7 +50,7 @@ int main()
         cout << "Enter [w|a|s|d] to move or [j] to skip: ";
         cin >> dire;
         
-        // fix issue #2: flush remaining newline characters in buffer
+        // flush remaining newline characters in buffer
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         
         if (dire == 'j' || dire == 'J')
@@ -67,16 +67,22 @@ int main()
         {
             if(gameover()) break; // Stop moving if game has already ended
             mmove();
+            if(gameover()) break; // Immediate check after moving
         }
     }
     clearscreen();
     showmap();
 
-    // Determine win or lose
-    if(prow == erow && pcol == ecol)
+    // Determine win or lose (Fixed Issue 2: Mummy reaching exit results in mummy loss)
+    if(mrow == erow && mcol == ecol)
+    {
+        cout << "The mummy stepped on the exit and was trapped! You win!" << endl;
+    }
+    else if(prow == erow && pcol == ecol)
     {
         cout << "Congratulations! You escaped!" << endl;
-    } else if(prow == mrow && pcol == mcol)
+    } 
+    else if(prow == mrow && pcol == mcol)
     {
         cout << "You were caught by the mummy! Game Over!" << endl;
     }
@@ -260,9 +266,12 @@ void showmap()
     cout << endl;
 }
 
+// Fixed Issue 2: Added mummy hitting exit as game-over condition
 bool gameover()
 {
-    if((prow == mrow && pcol == mcol) || (prow == erow && pcol == ecol))
+    if((prow == mrow && pcol == mcol) || 
+       (prow == erow && pcol == ecol) || 
+       (mrow == erow && mcol == ecol))
     {
         return true;
     }
@@ -285,32 +294,59 @@ void pmove(char direction)
     }
 }
 
-// Update mummy coordinates based on rules
+// Fixed Issue 1: BFS Pathfinding for Mummy AI
 void mmove()
 {
-    int next_row = mrow;
-    int next_col = mcol;
+    // Already at player position
+    if (mrow == prow && mcol == pcol) return;
 
-    if(mrow != prow) 
+    const int dr[] = {-1, 1, 0, 0};
+    const int dc[] = {0, 0, -1, 1};
+
+    // BFS from current mummy position to find shortest path to player
+    queue<pair<int, int>> q;
+    vector<vector<int>> dist(MAZER, vector<int>(MAZEC, -1));
+    vector<vector<pair<int, int>>> parent(MAZER, vector<pair<int, int>>(MAZEC, {-1, -1}));
+
+    q.push({mrow, mcol});
+    dist[mrow][mcol] = 0;
+
+    bool reached = false;
+    while (!q.empty())
     {
-        if(mcol > pcol && maze[mrow][mcol-1] != '#')
-            next_col--;
-        else if(mcol < pcol && maze[mrow][mcol+1] != '#')
-            next_col++;
-        // If horizontal move is blocked or unnecessary, attempt vertical movement
-        else if(mrow > prow && maze[mrow-1][mcol] != '#')
-            next_row--;
-        else if(mrow < prow && maze[mrow+1][mcol] != '#')
-            next_row++;
+        auto [cr, cc] = q.front();
+        q.pop();
+
+        if (cr == prow && cc == pcol)
+        {
+            reached = true;
+            break;
+        }
+
+        for (int d = 0; d < 4; d++)
+        {
+            int nr = cr + dr[d];
+            int nc = cc + dc[d];
+
+            if (nr >= 0 && nr < MAZER && nc >= 0 && nc < MAZEC && maze[nr][nc] != '#' && dist[nr][nc] == -1)
+            {
+                dist[nr][nc] = dist[cr][cc] + 1;
+                parent[nr][nc] = {cr, cc};
+                q.push({nr, nc});
+            }
+        }
     }
-    else // If in the same row, horizontal movement
+
+    if (!reached) return; // No accessible path to player
+
+    // Trace back from Player to Mummy to find the exact first step
+    pair<int, int> curr = {prow, pcol};
+    while (parent[curr.first][curr.second] != make_pair(mrow, mcol))
     {
-        if(mcol > pcol && maze[mrow][mcol-1] != '#')
-            next_col--;
-        else if(mcol < pcol && maze[mrow][mcol+1] != '#')
-            next_col++;
+        curr = parent[curr.first][curr.second];
     }
-    
-    mrow = next_row;
-    mcol = next_col;
+
+    // Move to the next step along the shortest path
+    mrow = curr.first;
+    mcol = curr.second;
 }
