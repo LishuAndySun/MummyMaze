@@ -43,14 +43,20 @@ int main()
     // Generate random valid maze using BFS
     GenerateMap();
 
-    char InputDirection;
+    char InputDirection = '\0'; // Initialized to prevent undefined behavior
 
     while (!GameOver())
     {
         ClearScreen();
         ShowMap();
         cout << "Enter [w|a|s|d] to move or [j] to skip: ";
-        cin >> InputDirection;
+        
+        // Check input stream state and safely exit on EOF or stream failure
+        if (!(cin >> InputDirection))
+        {
+            cout << "\nInput stream closed. Exiting game." << endl;
+            break;
+        }
         
         // Flush remaining newline characters in buffer
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
@@ -248,7 +254,6 @@ void ShowMap()
     for (int Row = 0; Row < MazeRows; ++Row)
     {
         for (int Col = 0; Col < MazeCols; ++Col)
-        {
             // 1. Player overlaps with Exit or is at regular position -> 'P'
             if (Row == PlayerRow && Col == PlayerCol)
             {
