@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <limits>
+#include <cctype>
 
 #ifdef _WIN32
 #define NOMINMAX // Prevent windows.h from defining min/max macros
@@ -26,6 +27,7 @@ int ExitRow, ExitCol;           // Exit/treasure position
 const int MazeRows = 10;        // Maze row count
 const int MazeCols = 20;        // Maze column count
 const double WallDensity = 0.13; // Density of internal walls
+const int MaxMapRetries = 1000;  // Maximum retry limit for random map generation
 //*---------------------CONFIG AREA ENDING-----------------*//
 
 bool GameOver();
@@ -35,12 +37,14 @@ void SkipPlayer();               // Skip player's move for this turn
 void MoveMummy();
 void ClearScreen();
 void GenerateMap();
+void GenerateFallbackMap();      // Fallback generator when random retries fail
+bool IsValidInput(char Input);  // Validates player movement and action commands
 
 int main()
 {
     srand(static_cast<unsigned int>(time(nullptr)));
     
-    // Generate random valid maze using BFS
+    // Generate random valid maze using BFS (with retry cap and fallback)
     GenerateMap();
 
     char InputDirection = '\0'; // Initialized to prevent undefined behavior
@@ -60,6 +64,18 @@ int main()
         
         // Flush remaining newline characters in buffer
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+        // Check if the user entered a recognized key (w/a/s/d/j case-insensitive)
+        if (!IsValidInput(InputDirection))
+        {
+            cout << "Invalid input! Please enter [w|a|s|d] to move or [j] to skip." << endl;
+#ifdef _WIN32
+            Sleep(1200);
+#else
+            sleep(1);
+#endif
+            continue; // Re-prompt without consuming a turn or letting the mummy move
+        }
         
         if (InputDirection == 'j' || InputDirection == 'J')
         {
@@ -104,20 +120,64 @@ int main()
     return 0;
 }
 
+// Check if the input character is a valid command (W, A, S, D, J)
+bool IsValidInput(char Input)
+{
+    char LowerInput = static_cast<char>(tolower(static_cast<unsigned char>(Input)));
+    return (LowerInput == 'w' || LowerInput == 'a' || LowerInput == 's' || 
+            LowerInput == 'd' || LowerInput == 'j');
+}
+
 // Function to skip the player's movement for this turn
 void SkipPlayer()
 {
     // Player remains at current position; mummy moves after
 }
 
-// Generates a solvable and playable map randomly using BFS
+// Fallback method to generate a safe, deterministic open map if random generation exceeds retries
+void GenerateFallbackMap()
+{
+    for (int Row = 0; Row < MazeRows; ++Row)
+    {
+        for (int Col = 0; Col < MazeCols; ++Col)
+        {
+            if (Row == 0 || Row == MazeRows - 1 || Col == 0 || Col == MazeCols - 1)
+            {
+                Maze[Row][Col] = '#';
+            }
+            else
+            {
+                Maze[Row][Col] = '.';
+            }
+        }
+    }
+
+    // Assign guaranteed valid initial coordinates
+    PlayerRow = 1;
+    PlayerCol = 1;
+    ExitRow = MazeRows - 2;
+    ExitCol = MazeCols - 2;
+    MummyRow = 1;
+    MummyCol = MazeCols - 2;
+}
+
+// Generates a solvable and playable map randomly using BFS with maximum retry attempts
 void GenerateMap()
 {
     const int DeltaRow[] = {-1, 1, 0, 0};
     const int DeltaCol[] = {0, 0, -1, 1};
 
-    while (true)
+    double CurrentWallDensity = WallDensity;
+    bool Success = false;
+
+    for (int Attempt = 0; Attempt < MaxMapRetries; ++Attempt)
     {
+        // Gradually relax density every 100 failed attempts to make generation easier
+        if (Attempt > 0 && Attempt % 100 == 0)
+        {
+            CurrentWallDensity = max(0.05, CurrentWallDensity * 0.9);
+        }
+
         // 1. Initialize boundary and random interior walls
         for (int Row = 0; Row < MazeRows; ++Row)
         {
@@ -130,7 +190,7 @@ void GenerateMap()
                 else
                 {
                     double RandomRatio = static_cast<double>(rand()) / RAND_MAX;
-                    Maze[Row][Col] = (RandomRatio < WallDensity) ? '#' : '.';
+                    Maze[Row][Col] = (RandomRatio < CurrentWallDensity) ? '#' : '.';
                 }
             }
         }
@@ -182,7 +242,7 @@ void GenerateMap()
                 {
                     if (Maze[NextRow][NextCol] == '.' && DistanceMap[NextRow][NextCol] == -1)
                     {
-                        DistanceMap[NextRow][NextCol] = DistanceMap[CurrentRow][CurrentCol] + 1;
+                        DistanceMap[NextRow][NextCol] = DistanceMap[CurrentRow][CurrentRow] + 1;
                         SearchQueue.push({NextRow, NextCol});
                     }
                 }
@@ -234,7 +294,14 @@ void GenerateMap()
         MummyRow = MummyCandidates[MummyIndex].first;
         MummyCol = MummyCandidates[MummyIndex].second;
 
+        Success = true;
         break; // Successfully generated a valid layout
+    }
+
+    // Fallback if max retry limit reached without finding a valid map
+    if (!Success)
+    {
+        GenerateFallbackMap();
     }
 }
 
@@ -254,6 +321,7 @@ void ShowMap()
     for (int Row = 0; Row < MazeRows; ++Row)
     {
         for (int Col = 0; Col < MazeCols; ++Col)
+        {
             // 1. Player overlaps with Exit or is at regular position -> 'P'
             if (Row == PlayerRow && Col == PlayerCol)
             {
