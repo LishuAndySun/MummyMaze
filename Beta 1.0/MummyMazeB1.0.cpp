@@ -26,7 +26,7 @@ int MummyRow, MummyCol;         // Mummy current position
 int ExitRow, ExitCol;           // Exit/treasure position
 const int MazeRows = 10;        // Maze row count
 const int MazeCols = 20;        // Maze column count
-const double WallDensity = 0.13; // Density of internal walls
+const double WallDensity = 0.40; // Density of internal walls
 const int MaxMapRetries = 1000;  // Maximum retry limit for random map generation
 //*---------------------CONFIG AREA ENDING-----------------*//
 
@@ -242,7 +242,7 @@ void GenerateMap()
                 {
                     if (Maze[NextRow][NextCol] == '.' && DistanceMap[NextRow][NextCol] == -1)
                     {
-                        DistanceMap[NextRow][NextCol] = DistanceMap[CurrentRow][CurrentRow] + 1;
+                        DistanceMap[NextRow][NextCol] = DistanceMap[CurrentRow][CurrentCol] + 1;
                         SearchQueue.push({NextRow, NextCol});
                     }
                 }
