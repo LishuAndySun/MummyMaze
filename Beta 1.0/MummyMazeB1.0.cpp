@@ -26,7 +26,7 @@ int MummyRow, MummyCol;         // Mummy current position
 int ExitRow, ExitCol;           // Exit/treasure position
 const int MazeRows = 10;        // Maze row count
 const int MazeCols = 20;        // Maze column count
-const double WallDensity = 0.40; // Density of internal walls
+const double WallDensity = 0.3382923; // Density of internal walls
 const int MaxMapRetries = 1000;  // Maximum retry limit for random map generation
 //*---------------------CONFIG AREA ENDING-----------------*//
 
@@ -86,8 +86,8 @@ int main()
             MovePlayer(InputDirection);
         }
 
-        // The mummy moves twice per turn
-        for (int StepIndex = 0; StepIndex < 2; ++StepIndex)
+        // The mummy moves once per turn, matching the player's movement rate
+        for (int StepIndex = 0; StepIndex < 1; ++StepIndex)
         {
             if (GameOver()) break; // Stop moving if game has already ended
             MoveMummy();

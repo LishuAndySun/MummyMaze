@@ -1,11 +1,11 @@
 # Mummy Maze Escape
 
-**Version: Beta 1.0-F**
+**Version: Beta 1.0-G**
 
 A classic console-based maze escape game written in C++. You play as a
 player (`P`) trapped in a randomly generated maze, trying to reach the
 exit (`E`) while being hunted by a relentless mummy (`M`) that moves
-twice for every move you make.
+  once for every move you make.
 
 ---
 
@@ -16,7 +16,7 @@ twice for every move you make.
 - You start at a random position; the **exit** is always placed far away
   (minimum distance of 6 steps) and the **mummy** spawns at least 5 steps
   from you — no instant-kill starts.
-- The mummy **moves twice per turn** after every player move.
+- The mummy **moves once per turn** after every player move.
 - Reach the exit before the mummy catches you!
 
 ### Special Rule (new in Beta 1.0-C)
